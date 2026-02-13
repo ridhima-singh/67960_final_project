@@ -1,0 +1,157 @@
+/* Main */
+body {
+    font-family: 'Times New Roman', 'Georgia', sans-serif;
+    line-height: 1.5;
+    display: flex;
+    background-color: #f4f4f4;
+    color: #2c2c2c;
+}
+
+
+
+
+/* Sidebar */
+.sidebar {
+    width: 225px;
+    background-color: #2c2c2c;
+    color: #ecf0f1;
+    height: 100vh;
+    position: fixed;
+    overflow-y: scroll;
+    top: 0;
+    left: 0;
+    padding-right: 5px;
+}
+
+.sidebar h3 {
+    margin-top: 12px;
+    text-align: center;
+    color: #ecf0f1;
+}
+
+.sidebar ul {
+    padding: 0;
+    margin: 10px;
+    list-style: none;
+}
+
+.sidebar ul li {
+    margin-top: 0px;
+    margin-bottom: 6px;
+    font-weight: normal;
+}
+
+.sidebar ul li a {
+    color: #ecf0f1;
+    text-decoration: none;
+    font-size: 1em;
+}
+
+.sidebar ul li a:hover {
+    color: #3498db;
+}
+
+.sidebar ul ul {
+    list-style-type: none;
+}
+
+.sidebar ul ul li {
+    margin-top: 0px;
+    margin-bottom: 4px;
+    font-style: italic;
+}
+
+.sidebar ul ul li a {
+    color: #ecf0f1;
+    text-decoration: none;
+    font-size: .8em;
+}
+
+
+
+
+/* Main content styles */
+.main-content {
+    margin-left: 240px;
+    max-width: calc(100% - 270px);
+    text-align: center
+}
+
+
+h1 {
+    text-align: center;
+    margin-top: 5px;
+    margin-bottom: 3px;
+    color: #2c2c2c;
+    padding: 0;
+}
+
+h2 {
+    margin-top: 18px;
+    margin-bottom: 5px;
+    color: #2c2c2c;
+    padding: 0;
+    text-align: left;
+}
+
+h3 {
+    margin-top: 10px;
+    margin-bottom: 5px;
+    color: #2c2c2c;
+    padding: 0;
+    font-style: italic;
+    text-align: left;
+}
+
+h4 {
+    margin-top: 0px;
+    margin-bottom: 3px;
+    color: #2c2c2c;
+    padding: 0;
+    font-style: bold;
+    text-align: left;
+}
+
+p {
+    margin-top: 0px;
+    margin-bottom: 5px;
+    padding: 0;
+    text-align: left;
+}
+
+
+
+
+
+/* Figures */
+.figure-row {
+    display: flex;
+    justify-content: space-around; /* Adjusts spacing between figures */
+    align-items: center;
+    margin: 20px 0;
+}
+
+.figure-row figure {
+    width: 45%; /* Adjust the width of each figure */
+    text-align: center;
+}
+
+.figure-row img {
+    max-width: 100%;
+    height: auto;
+    border-radius: 8px;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+}
+
+figure {
+    max-width: 100%;
+    margin: 20px 0;
+    text-align: center;
+}
+
+figure img {
+    max-width: 100%;
+    height: auto;
+    border-radius: 8px;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+}

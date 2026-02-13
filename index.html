@@ -1,0 +1,585 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Bidirectional Inference via Logical-Probabilistic Refinement</title>
+    <link rel="stylesheet" href="styles.css" />
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.11.1/dist/katex.min.css" integrity="sha384-zB1R0rpPzHqg7Kpt0Aljp8JPLqbXI3bhnPWROx27a9N0Ll6ZP/+DiW/UqRcLbRjq" crossorigin="anonymous">
+    <script defer src="https://cdn.jsdelivr.net/npm/katex@0.11.1/dist/katex.min.js" integrity="sha384-y23I5Q6l+B6vatafAwxRu/0oK/79VlbSz7Q9aiSZUvyWYIYsd+qj+o24G5ZU2zJz" crossorigin="anonymous"></script>
+    <script defer src="https://cdn.jsdelivr.net/npm/katex@0.11.1/dist/contrib/auto-render.min.js" integrity="sha384-kWPLUVMOks5AQFrykwIup5lo0m3iMkkHrD0uJ4H5cjeGihAutqP0yW0J6dpFiVkI" crossorigin="anonymous" onload="renderMathInElement(document.body);"></script>
+
+</head>
+
+<body>
+
+    <!-- Sidebar -->
+    <div class="sidebar">
+        <h3  style="font-style: normal">Table of Contents</h3>
+        <ul>
+            <li><a href="#introduction">Introduction</a></li>
+
+            <li><a href="#background">Background</a>
+                <ul>
+                    <li><a href="#generalization">Symbolic Augmentation</a></li>
+                    <li><a href="#logic">Logical Fine-Tuning</a></li>
+                    <li><a href="#theory">Theoretical Foundations</a></li>
+                    <li><a href="#gap">Research Gap</a></li>
+                </ul>
+            </li>
+
+            <li><a href="#methodology">Methodology</a>
+                <ul>
+                    <li><a href="#framework">Theoretical Framework</a></li>
+                    <li><a href="#bias">Inductive Bias</a></li>
+                    <li><a href="#architecture">System Architecture</a></li>
+                    <li><a href="#algorithm">Algorithmic Sketch</a></li>
+                    <li><a href="#statistics">Statistical Interpretation</a></li>
+                </ul>
+            </li>
+
+            <li><a href="#results">Results</a>
+                <ul>
+                    <li><a href="#evaluation">Evaluation Results</a></li>
+                    <li><a href="#flow">Conceptual Flows</a></li>
+                    <li><a href="#performance">Retrieval Performance</a></li>
+                </ul>
+            </li>
+
+            <li><a href="#discussion">Discussion</a></li>
+                <ul>
+                    <li><a href="#implications">Implications</a></li>
+                    <li><a href="#limitations">Limitations</a></li>
+                    <li><a href="#conclusion">Conclusion</a></li>
+                </ul>
+
+            <li><a href="#references">References</a></li>
+        </ul>
+    </div>
+
+
+    <!-- Main Content -->
+    <div class="main-content">
+
+        <h1>Bidirectional Inference via Logical-Probabilistic Refinement</h1>
+         <p style="text-align: center">6.7960 Final Project</p>
+         <p style="text-align: center">By: Josue Castillo and Ridhima Singh</p>
+
+        <h2 id="introduction">Introduction</h2>
+        <p>
+            Deep neural networks, including large language models (LLMs), have achieved remarkable progress across natural language tasks,
+            yet they still struggle with compositional generalization, or the ability to systematically combine familiar elements in novel
+            ways. A key failure mode is the “reversal curse”: a model trained on a fact such as “Paris is the capital of France” can
+            answer “Paris is the capital of which country?” but not “What is the capital of France?”, despite both queries encoding the
+            same relation. These failures point to a deeper structural problem: standard sequence-model training does not guarantee
+            systematic logical reasoning or symmetric understanding of relations.
+        </p>
+        <p>
+            Over the past few years, researchers have pushed two promising paths to tackle these issues: (1) symbolic augmentation by infusing
+            models with structured representations, grammars, or formal languages to promote systematic composition, and (2) fine-tuning on
+            logical reasoning tasks, including chain-of-thought (CoT), formal deduction, and neuro-symbolic hybrid workflows. Both
+            directions show substantial gains across compositional semantic parsing, math reasoning (MATH), and complex commonsense
+            reasoning (CSR) tasks.
+        </p>
+        <p>
+            Together, these developments show that compositionality and reasoning can be strengthened by integrating symbolic bias with neural
+            flexibility. Injecting algorithmic scaffolding, whether through data, architecture, or training objectives, appears to reduce
+            systematic errors, strengthen multi-step inference, and push LLMs closer to human-level reliability. At the same time, these
+            approaches often raise questions about trade-offs with general language performance, the preservation of linguistic fluency, and
+            the precise conditions under which logical fine-tuning helps versus harms model behavior.
+        </p>
+
+        <h2 id="background">Background</h2>
+
+        <h3 id="generalization">Symbolic Augmentation for Compositional Generalization</h3>
+        <p>
+            Compositional generalization refers to a model's ability to handle new combinations of known primitives- a capacity that classical
+            symbolic systems handle well but neural networks usually struggle with<a href="#ref1">[1]</a>. Recent work injects symbolic structure through
+            explicit grammars, parse-tree guidance, and vector-symbolic encodings to close this gap. Grammar-inspired architectures, as noted in
+            Lindemann et al. (2023), introduce the concept of differentiable fertility and reordering layers, which can mirror synchronous
+            grammar operations and result in major gains on compositional semantic parsing benchmarks like CFQ and GeoQuery<a href="#ref2">[2]</a>.
+            Similarly, data-augmentation work, like in Yao & Koller, 2024, generates synthetically diverse logic-sentence pairs via PCFG
+            sampling, greatly expanding the set of unseen compositions and boosting performance on COGS, CFQ, SCAN, and GeoQuery<a href="#ref3">[3]</a>.
+            Finally, Neuro-symbolic architectures, such as the Differentiable Tree Machine (DTM), further embed symbolic tree operations directly
+            into continuous vector spaces, achieving near-perfect out-of-distribution generalization on synthetic tree-transformation
+            tasks<a href="#ref4">[4]</a>. Collectively, these methods show that providing explicit structural commands help models
+            escape shallow pattern-matching and learn systematic recomposability.
+        </p>
+
+        <h3 id="logic">Logical and Chain-of-Thought Fine-Tuning</h3>
+        <p>
+            A complementary strategy is to fine-tune LLMs on logical reasoning tasks- formal logic, mathematical deduction, chain-of-thought
+            reasoning, or neuro-symbolic decomposition. Chain-of-Thought (CoT) fine-tuning, explained in Zhang et al. 2024, aligns models
+            with reasoning traces derived from search, significantly improving accuracy on tasks including multi-hop QA, math word
+            problems, and factual verification<a href="#ref5">[5]</a>. Prompt-based CoT tuning for masked-language models (Fan et al. 2023) shows
+            similar gains in hierarchical text classification and relation extraction<a href="#ref6">[6]</a>. Moreover, neuro-symbolic translation
+            methods, including Pan et al. 2023's  Logic-LM, train the LLM to map natural language into formal logic programs executed
+            by external symbolic solvers, improving faithfulness and correctness on deductive benchmarks<a href="#ref7">[7]</a>.
+            More recent 2025 work (Dhanraj & Eliasmith) embeds symbolic algorithms inside LLM hidden states using vector-symbolic
+            architectures, solving 15x more rule-based math problems without degrading performance on standard NLP tasks<a href="#ref8">[8]</a>.
+            Together, these studies suggest fine-tuning can significantly enhance reasoning when done carefully, but it can also cause
+            failure modes like unfaithful chains-of-thought or catastrophic forgetting if done naively.
+        </p>
+
+        <h3 id="theory">Theoretical Foundations</h3>
+        <p>
+            Parallel theoretical work explains why symbolic structure and broad compositional coverage help. Scaling studies (Xu et al., 2024)
+            show that larger models tend to adopt simpler, compositional solutions rather than memorizing all combinations, even though
+            memorization is in principle possible<a href="#ref9">[9]</a>. Frameworks like the coverage principle show that generalization depends
+            on exposing each primitive in sufficiently diverse contexts, and without adequate coverage, learner-neurals cannot extrapolate
+            to unseen structural combinations<a href="#ref10">[10]</a>. Nontheless, factorization-agnostic training objectives show promise in
+            reducing the reversal curse by encouraging models to represent relations independent of surface order<a href="#ref11">[11]</a>. These
+            theoretical results reinforce the idea that neural models benefit from structural cues and that a robust training distribution
+            design is key for improved generalization.
+        </p>
+
+        <h3 id="gap">Research Gap</h3>
+        <p>
+            Despite rapid progress in symbolic augmentation and logical fine-tuning, existing approaches leave several unresolved gaps
+            in achieving robust, general-purpose reasoning. First, neuro-symbolic systems like Logic-LM rely on translating natural
+            language into a formal symbolic representation, but this translation step constrains model performance. If a symbolic
+            solver cannot express a task, such as those exceeding first-order logic or involving probabilistic constraints, then the
+            entire pipeline collapses. Moreover, the translation itself often depends on in-context learning with additional
+            demonstrations, so when logical grammars become intricate or domain-specific, LLMs struggle to produce well-formed
+            symbolic programs. This aligns with the more general “intermediate language problem”- LLMs perform well only when the
+            chosen symbolic format is close to natural language or cognitively simple, and performance degrades sharply when
+            intermediate representations diverge from surface text. Because most recent evaluations use small models
+            (e.g., GPT-4o-mini), it remains unclear whether these limitations persist at scale or whether stronger models merely
+            mask structural mismatches without solving them. Finally, while chain-of-thought or logic-based fine-tuning often
+            improves task-specific reasoning, it can also introduce hallucinated reasoning, unfaithful chains, or degradation on
+            non-reasoning tasks, revealing an imbalance between  reasoning and fluency.
+        </p>
+        <p>
+            At the same time, current work does not adequately address mechanissm behind failures like the reversal curse,
+            thus lacks a systematic way to ensure that fine-tuning on logic improves bidirectional inference rather than reinforcing
+            directional biases. As such, our methodology directly targets this gap: instead of relying on the weak reverse conditional
+            \(p(A|B)\), it reconstructs inverse reasoning by combining symbolic parsing, candidate generation, and forward-verification
+            using the stronger conditional \(p(B|A)\). No prior work has tested whether fine-tuning on structured, compositional, or
+            CoT-style logical data actually improves this bidirectional inference or whether it might worsen asymmetry by further
+            emphasizing forward-only statistical dependencies. Likewise, existing research has not evaluated how such logical
+            fine-tuning trades off against general-language benchmarks (e.g., GLUE), mathematical reasoning (MATH/GSM8K), or
+            commonsense reasoning (CSR). This leaves a central open question: Does fine-tuning on logical data improve systematic
+            reasoning without harming linguistic precision or generalization, and can symbolic dependencies mitigate known failures
+            like the reversal curse?
+        </p>
+        <p>
+            Our project addresses this unfilled space by testing how logic-focused fine-tuning interacts with compositional
+            generalization, benchmark performance, and the structural asymmetries identified in prior theoretical and empirical
+            studies
+
+        </p>
+
+        <h2 id="methodology">Methodology</h2>
+
+        <h3 id="framework">Theoretical Framework: Asymmetry of Causal Encoding</h3>
+        <p>
+            We consider standard autoregressive (causal) language models (LMs) trained with a left-to-right
+            next-token prediction objective. Let a text sequence be denoted by
+            \(t_{1:n} = (t_1,\dots,t_n)\). The model is trained to minimize the negative log-likelihood:
+        </p>
+
+        <p style="text-align: center">
+            \( \mathcal{L}(\theta)= - \sum_{i=1}^{n} \log p_\theta\bigl(t_i \mid t_{1:i-1}\bigr) \)
+        </p>
+
+        <p>
+            where \(p_\theta\) is the model's conditional distribution over tokens parameterized by weights \(\theta\).
+        </p>
+
+        <p>
+            This factorization induces a strongly directional encoding of statistical dependencies: during both
+            training and inference, the model emphasizes conditional distributions of the form \(p_\theta(B \mid A)\)
+            whenever a factual association is typically written as "\(\texttt{A ... B}\)" in text (e.g.,
+            "Tom Cruise's mother is Mary Lee Pfeiffer"). Empirically, as demonstrated by Berglund et al.
+            ("Reversal Curse"), high accuracy on the forward conditional \(p_\theta(B \mid A)\) does not
+            imply that the reverse conditional \(p_\theta(A \mid B)\) is significantly better than a near-random
+            baseline over plausible candidates.
+        </p>
+
+        <p>
+            Formally, for many factual pairs \((A,B)\),
+        </p>
+        <p style="text-align: center">
+            \( p_\theta(B \mid A) \gg p_\theta(B) \quad\text{but}\quad p_\theta(A \mid B) \approx p_\theta(A), \)
+        </p>
+
+        <p>
+            so recovering \(A\) from \(B\) by direct reversal is unreliable. The learned conditional structure is
+            highly asymmetric: the model reliably traverses the ``forward'' direction \(A \to B\), while the
+            reverse direction \(B \to A\) may remain poorly calibrated or effectively disconnected from the
+            true logical inverse of the relation.
+        </p>
+
+
+        <h3 id="bias">Inductive Bias: Using Forward Verification to Repair Reverse Retrieval</h3>
+        <p>
+            Many relations of interest in factual question answering are logically invertible or at least\
+            logically constrained in both directions (e.g., parent/child, capital/country, author/work),
+            even when their learned probabilistic encodings are not symmetric.
+        </p>
+
+        <p>
+            We explicitly exploit the empirical asymmetry
+            \(p_\theta(B \mid A) \gg p_\theta(A \mid B)\)
+            by recasting inverse queries ("given \(B\), find \(A\)") as a <i>search + forward-verification</i>
+            problem rather than as a direct reverse-retrieval problem.
+        </p>
+
+        <p>
+            Let \(B\) denote the conditioning entity in the user query (e.g.,"Mary Lee Pfeiffer") and let
+            \(A\) denote the unknown answer (e.g., "Tom Cruise"). For a given relation \(R\), such as:
+        </p>
+        <p style="text-align: center">
+            \(\mathrm{mother}(\text{Tom Cruise}) = \text{Mary Lee Pfeiffer},\)
+        </p>
+        <p>
+            the user query
+        </p>
+        <p style="text-align: center">
+            \( \text{``Who is the son of Mary Lee Pfeiffer?''} \)
+        </p>
+        <p>
+            corresponds to solving the inverse problem
+        </p>
+        <p style="text-align: center">
+            \(\text{find } A \text{ such that } R(A,B) \text{ holds},\)
+        </p>
+        <p>
+            where training text typically encodes facts in the forward direction
+            child → mother, so that \(p_\theta\bigl(B \mid A\bigr)\) is well learned.
+        </p>
+        <p>
+            We position a latent <i>candidate space</i> \(\mathcal{C}_B\) of entities that are plausibly
+            related to \(B\) under the inverse query (e.g., people who might be Mary Lee Pfeiffer's children).
+            Our inductive bias is that, although \(p_\theta(A \mid B)\) may be poorly informative over the full
+            vocabulary, there exists a candidate set \(\mathcal{C}_B\) such that
+        </p>
+        <p style="text-align: center">
+            \(\hat{A} \approx \arg\max_{x \in \mathcal{C}_B} p_\theta\bigl(B \mid x\bigr)\)
+        </p>
+        <p>
+            where \(p_\theta(B \mid x)\) is evaluated in a prompt that asks for the <i>forward</i>
+            relation (e.g., "Who is the mother of \(x\)?")
+
+        </p>
+
+        <h3 id="architecture">System Architecture: Pipeline Query Modes</h3>
+        <p>
+            The system is built around a lightweight generative architecture designed to evaluate how reliably a
+            language model can recover both forward and inverse forms of a factual relation. Because autoregressive
+            language models encode relations asymmetrically, typically learning the forward direction (e.g., child → parent)
+            more robustly than the reverse, the architecture employs a set of complementary query modes that
+            probe different aspects of the model’s stored knowledge. The method relies solely on prompting and
+            text-level analysis, without access to token probabilities, structured knowledge representations,
+            or explicit candidate sets. Instead, the system extracts relational information by issuing multiple
+            generative queries and checking whether the correct entity appears anywhere in the aggregated output.
+            This structure provides a practical mechanism for testing whether inverse retrieval can be indirectly
+            reconstructed from patterns the model reliably expresses in the forward direction.
+        </p>
+
+        <h4>Forward Query (Child → Parent)</h4>
+        <p>
+            The forward query mode asks directly for parental information given a child entity. Prompts are constructed
+            o elicit family facts about the child, such as "List facts about [child], including family information” or
+            "Write a short factual bio of [child]." The outputs are then scanned for the presence of the gold parent's
+            full name. This mode leverages the model's well-trained forward conditional distributions, where parent
+            facts are more reliably encoded.
+        </p>
+
+        <h4>Naive Reverse Query (Parent → Child)</h4>
+        <p>
+            The naive reverse query attempts to recover a child entity directly from a parent prompt, e.g., “Who is a
+            child of [parent]?” This mode corresponds to the uncorrected inverse retrieval problem and is subject to
+            the Reversal Curse: the model often fails to produce the correct child, defaulting to generic or spurious
+            names. While included for comparison, this mode typically exhibits low accuracy and motivates the need
+            for richer pipelines.
+        </p>
+
+        <h4>Pipeline Backward Query (Parent → Child, Enriched)</h4>
+        <p>
+            TThe pipeline backward query expands upon the naive reverse by introducing multiple probes with varied
+            temperatures and formats. For example, one prompt requests a list of children of the parent, while another
+            asks for a short factual biography of the parent. By combining outputs from both probes, the system
+            constructs a candidate set of possible children. Success is defined as the gold child appearing anywhere
+            in the union of outputs, without requiring explicit ranking. This enriched backward mode increases coverage
+            and mitigates the sparsity of direct inverse conditionals.
+        </p>
+
+        <h4>Pipeline Forward Query (Child → Parent, Enriched)</h4>
+        <p>
+            In conjunction with the backward pipeline, the forward pipeline enriches queries about the child. Prompts
+            request both factual lists and biographical sketches, encouraging the model to mention parental names in
+            diverse contexts. Outputs are aggregated, and the presence of the gold parent is checked across the union.
+            This mode complements the backward pipeline by ensuring that both directions of the relation are probed with
+            richer, more exploratory prompts.
+        </p>
+
+
+        <h3 id="algorithm">Algorithmic Sketch</h3>
+        <p>
+            The algorithm proceeds in a sequence of deterministic and multi-sample generative steps that together measure
+            both the asymmetry of the model's learned relations and the extent to which multi-probe prompting can recover
+            missing inverse information. Each step operates over a tuple (\(A\) = child, \(B\) = parent, \(R\) = relation)
+            and uses a standardized name-matching heuristic to detect the appearance of the correct entity in generated text.
+        </p>
+
+        <h4>Step 1: Parse</h4>
+        <p>
+            Given a query involving entities \(A\) and \(B\), identify the relation type (e.g., mother-of, father-of) and determine
+            whether the query is forward (child → parent) or inverse (parent → child). Construct appropriate prompt templates
+            for each query mode.
+        </p>
+
+        <h4>Step 2: Forward Query Evaluation</h4>
+        <p>
+            Run the forward query prompts for the child entity. Collect outputs and check whether the gold parent's name
+            appears. Record success or failure.
+        </p>
+
+        <h4>Step 3: Naive Reverse Evaluation</h4>
+        <p>
+            Run the naive reverse prompt for the parent entity. Collect the single output and check for the gold child's name.
+            Record success or failure. This step provides a baseline for comparison.
+        </p>
+
+        <h4>Step 4: Pipeline Backward Evaluation</h4>
+        <p>
+            Run the enriched backward pipeline prompts for the parent entity, including both list-style and biography-style probes.
+            Collect multiple outputs at varied temperatures. Aggregate all text and check for the gold child's name.
+            Record success if found.
+
+        </p>
+
+        <h4>Step 5: Pipeline Forward Evaluation</h4>
+        <p>
+            Run the enriched forward pipeline prompts for the child entity, again combining list-style and biography-style probes.
+            Aggregate outputs and check for the gold parent's name. Record success if found.
+        </p>
+
+        <h4>Step 6: Gated Rescue Condition</h4>
+        <p>
+            Define a rescue condition: if the forward query succeeds but the naive reverse fails, then check whether both pipeline
+            forward and backward succeed. If so, mark the case as “GATED ✅,” indicating that the pipeline rescued the inverse retrieval
+            failure. Otherwise, mark as “GATED ❌.”
+        </p>
+
+        <h4>Step 7: Aggregate Statistics</h4>
+        <p>
+            Compute accuracy metrics for each query mode (forward, naive reverse, pipeline backward, pipeline forward) and for the gated
+            rescue condition. These statistics provide a quantitative evaluation of the pipeline's effectiveness in overcoming the Reversal Curse.
+        </p>
+
+
+        <h3 id="statistics">Statistical Interpretation</h3>
+        <p>
+            We can interpret this procedure as an approximate Bayesian inference scheme over a restricted
+            candidate set. Let \(\mathcal{C}_B\) denote the finite candidate set constructed by the Proposer.
+            Consider the posterior over candidates given \(B\),
+        </p>
+        <p style="text-align: center">
+            \(  p(A = c \mid B) \propto p(B \mid A = c)\, p(A = c), \quad c \in \mathcal{C}_B \)
+        </p>
+        <p>
+            where:
+        </p>
+        <ul style="text-align: left;">
+            <li>\(p(B \mid A=c)\) is the likelihood term, aligned with the LM's training direction
+                (approximated by \(p_\theta(B \mid V(c))\)), and</li>
+            <li>\(p(A=c)\) is an implicit prior over candidates (e.g., induced by frequency or an explicit
+                prior module).</li>
+        </ul>
+        <p>
+            In the extreme case where the reverse conditional \(p_\theta(A \mid B)\) is nearly uninformative
+            over \(\mathcal{C}_B\) (a stylized view of the Reversal Curse), the posterior is dominated by the
+            likelihood term \(p_\theta(B \mid A)\). Our method makes this explicit: we do not depend on the
+            direct reverse distribution; instead, we:
+        </p>
+        <ol style="text-align: left;">
+            <li>restrict attention to a candidate set \(\mathcal{C}_B\) that is hopefully rich enough to contain
+                the true answer, and</li>
+            <li>reweight these candidates according to their forward-consistency scores
+                \(S(c_i) \propto p_\theta(B \mid c_i)\).</li>
+        </ol>
+        <p>
+            In the implemented system, the candidate set \(\mathcal{C}_B\) is implicit in the space of names surfaced by generative
+            probes, and the forward-consistency score is approximated by text-appearance heuristics rather than
+            log-probability evaluation. Thus, our Pipeline--Query structure can be viewed as a concrete mechanism for
+            leveraging the well-trained forward conditionals \(p_\theta(B \mid A)\) to approximate the desired
+            inverse retrieval over \(A\), while acknowledging and working around the empirical failure of naive
+            reversal \(p_\theta(A \mid B)\).
+        </p>
+
+
+        <h2 id="results">Results</h2>
+        <p>
+            We fine-tuned the openai/gpt-oss-20B and openai/gpt-oss-120B models using the Tinker API, which provides a
+            lightweight interface for parameter-efficient LoRA training<a href="#ref12">[12]</a>. Tinker handles tokenization, batching, and
+            adapter configuration automatically, allowing us to supply training examples in JSONL form and train only
+            low-rank adaptation matrices while keeping the base model frozen. Fine-tuning was launched via
+            finetune_lora with standard LoRA settings, after which the resulting adapter was used for inference through
+            Tinker's sampling client. This workflow enabled rapid iteration on small supervised datasets while maintaining
+            consistency between training and sampling, and allowed us to evaluate both the base and fine-tuned models
+            within the same pipeline for forward, reverse, and multi-probe retrieval experiments.
+        </p>
+
+        <h3 id="evaluation">Evaluation Results</h3>
+        <p>
+            The table below summarizes the performance of different query strategies on a parent-child factual retrieval task.
+            Columns report success for forward queries (FWD), naive reverse queries (NAI), enriched pipeline backward queries
+            (PIP-B), and enriched pipeline forward queries (PIP-F). The “GATED” status highlights cases where pipeline probes
+            successfully recovered the correct entity despite naive reversal failure.
+        </p>
+        <div class="figure-row">
+            <figure>
+                <img src="images/results_20b.png" alt="Figure 1" />
+                <figcaption>Accuracy outcomes across query modes using gpt-oss-20b</figcaption>
+            </figure>
+            <figure>
+                <img src="images/results_120b.png" alt="Figure 2" />
+                <figcaption>Accuracy outcomes across query modes using gpt-oss-120b</figcaption>
+            </figure>
+        </div>
+
+        <p>
+            We see that naive reversal is consistently unreliable, while pipeline probes dramatically improve coverage
+            n both directions. In particular, the forward pipeline achieves near-complete accuracy, and the gated rescue condition
+            demonstrates that enriched probing can recover a majority of cases where naive reversal fails. This confirms the
+            pipeline's effectiveness in overcoming the Reversal Curse and strengthening inverse retrieval.
+        </p>
+
+
+        <h3 id="flow">Conceptual Flow Comparison</h3>
+        <p>
+            The diagrams below illustrate the progression of query success across three stages for both the 20b and 120b models. In
+            each case, we observe a drop in performance when reversing the query direction naively, followed by a recovery when enriched
+            pipeline probes are applied.
+        </p>
+        <div class="figure-row">
+            <figure>
+                <img src="images/flow_20b.png" alt="Figure 3" />
+                <figcaption>Success trajectory across query modes using gpt-oss-20b</figcaption>
+            </figure>
+            <figure>
+                <img src="images/flow_120b.png" alt="Figure 4" />
+                <figcaption>Success trajectory across query modes using gpt-oss-120b</figcaption>
+            </figure>
+        </div>
+
+        <p>
+            The 20b model shows only modest recovery after naive reversal, with pipeline rescue yielding limited gains. In contrast,
+            the 120b model demonstrates a robust recovery curve, with pipeline probes restoring over 60% of failed cases. This comparison
+            confirms that larger models not only encode forward facts more reliably, but also respond more effectively to enriched inverse
+            probing, making pipeline strategies especially powerful at larger scales.
+        </p>
+
+        <h3 id="performance">Retrieval Performance</h3>
+        <p>
+            The chart below compares the accuracy of gpt-oss-20b and gpt-oss-120b across six retrieval strategies: forward, naive reverse,
+            pipeline backward, pipeline forward, both pipelines, and pipeline rescue. Each strategy is evaluated by its success rate in
+            recovering correct parent-child relationships.
+
+        <figure>
+            <img src="images/retreival_performances.png" alt="Figure 5" />
+            <figcaption>Retrieval accuracy for gpt-oss-20b and gpt-oss-120b models across six query modes</figcaption>
+        </figure>
+
+        <p>
+            While both models struggle with naive reversal, the 120b model demonstrates significantly stronger performance across all retrieval modes.
+            Its near-perfect accuracy in pipeline forward queries and robust rescue rate highlight how scale amplifies the effectiveness of structured probing.
+            These results reinforce the value of combining large models with enriched query strategies to overcome directional asymmetries in factual encoding.
+        </p>
+
+
+
+        <h2 id="discussion">Discussion</h2>
+
+        <h3 id="implications">Implications</h3>
+        <p>
+            Across both model sizes, the results reveal a  asymmetry between forward and backward relational retrieval, consistent with expectations about
+            directional encoding in autoregressive language models. Direct forward queries perform moderately (16/56 for 120B), while naive reverse queries
+            perform worse (8/56), reinforcing that the backward conditional remains poorly represented despite the presence of the forward fact. The
+            multi-probe pipeline substantially improves performance in both directions: pipeline-backward reaches 41/56 and pipeline-forward reaches 53/56 on
+            the 120B model, suggesting that generative probes are able to better synthesize relational information. Most importantly, when evaluating only
+            the “gated” cases where forward succeeds and naive reverse fails, the dual-pipeline mechanism successfully recovers both sides of the relation
+            in 9 out of 14 instances. These results demonstrate that inverse relations, while inaccessible through naive prompting, can frequently be
+            reconstructed through strategically diversified generation.
+        </p>
+
+        <h3 id="limitations">Limitations</h3>
+        <p>
+            Despite robust results, the approach still depends on heuristic name matching and prompt-based sampling, which may miss correct answers due to
+            phrasing variations or incomplete generations. The pipeline strategy also does not rank candidates or estimate confidence, and success is
+            binary and based solely on string presence. Additionally, the evaluation is limited to parent-child relations and celebrity data, which may not
+            generalize to more abstract or domain-specific factual queries. Finally, while Tinker's remote API simplifies orchestration, latency and
+            sampling variability can still arise and affect reproducibility across runs.
+        </p>
+
+        <h3 id="conclusion">Conclusion</h3>
+        <p>
+            In conclusion, our experiments show that, while large language models continue to struggle with direct inverse retrieval,
+            targeted generative probing can recover a substantial amount of backward relational knowledge that remains hidden under naive prompting.
+            Our dual-pipeline approach provides an effective mechanism for uncovering these latent dependencies, demonstrating that inverse relations
+            are often present in the model's internal representations but require indirect prompting to access. At the same time, the persistence of
+            asymmetry even in the 120B model highlights the need for inference-time techniques or training-time objectives that explicitly
+            enforce bidirectional relational structure. Taken together, these findings suggest that generative pipelines offer a promising but partial
+            solution to the Reversal Curse, highlighting both the strengths and weaknesses of current capabilities in bidirectional inference.
+        </p>
+
+
+        <h2 id="references">References</h2>
+
+        <p id="ref1">
+            [1]<a href="https://proceedings.neurips.cc/paper_files/paper/2024/hash/ccfa9ba5a84d0e4c620093d27102b7c5-Abstract-Conference.html" style="text-align: left">Soulos, P., Conklin, H., Opper, M., Smolensky, P., Gao, J., & Fernandez, R. (2024). Compositional generalization across distributional shifts with sparse tree operations.</a>
+        </p>
+
+        <p id="ref2">
+            [2]<a href="https://aclanthology.org/2023.eacl-main.159/" style="text-align: left">Lindemann, M., Koller, A., & Titov, I. (2023). Compositional generalisation with structured reordering and fertility layers.</a>
+        </p>
+
+        <p id="ref3">
+            [3]<a href="https://aclanthology.org/2024.naacl-long.25/" style="text-align: left">Yao, Y., & Koller, A. (2024). Simple and effective data augmentation for compositional generalization.</a>
+        </p>
+
+        <p id="ref4">
+            [4]<a href="https://proceedings.mlr.press/v202/soulos23a.html" style="text-align: left">Soulos, P., Hu, E. J., McCurdy, K., Chen, Y., Fernandez, R., Smolensky, P., & Gao, J. (2023). Differentiable tree operations promote compositional generalization.</a>
+        </p>
+
+        <p id="ref5">
+            [5]<a href="https://proceedings.neurips.cc/paper_files/paper/2024/hash/00d80722b756de0166523a87805dd00f-Abstract-Conference.html" style="text-align: left">Zhang, X., Du, C., Pang, T., Liu, Q., Gao, W., & Lin, M. (2024). Chain of preference optimization: Improving chain-of-thought reasoning in llms.</a>
+        </p>
+
+        <p id="ref6">
+            [6]<a href="https://arxiv.org/abs/2310.11721" style="text-align: left">Fan, C., Tian, J., Li, Y., Chen, W., He, H., & Jin, Y. (2023). Chain-of-thought tuning: Masked language models can also think step by step in natural language understanding.</a>
+        </p>
+
+        <p id="ref7">
+            [7]<a href="https://aclanthology.org/2023.findings-emnlp.248/" style="text-align: left">Pan, L., Albalak, A., Wang, X., & Wang, W. (2023). Logic-lm: Empowering large language models with symbolic solvers for faithful logical reasoning.</a>
+        </p>
+
+        <p id="ref8">
+            [8]<a href="https://arxiv.org/abs/2502.01657" style="text-align: left">Dhanraj, V., & Eliasmith, C. (2025). Improving Rule-based Reasoning in LLMs using Neurosymbolic Representations.</a>
+        </p>
+
+        <p id="ref9">
+            [9]<a href="https://arxiv.org/abs/2507.07207" style="text-align: left">Redhardt, F., Akram, Y., & Schug, S. (2025). Scaling can lead to compositional generalization.</a>
+        </p>
+
+        <p id="ref10">
+            [10]<a href="https://arxiv.org/abs/2505.20278" style="text-align: left">Chang, H., Park, J., Cho, H., Yang, S., Ko, M., Hwang, H., ... & Seo, M. (2025). The Coverage Principle: A Framework for Understanding Compositional Generalization.</a>
+        </p>
+
+        <p id="ref11">
+            [11]<a href="https://proceedings.neurips.cc/paper_files/paper/2024/hash/cbcce87f745072c819204529be843d16-Abstract-Conference.html" style="text-align: left">Kitouni, O., Nolte, N. S., Williams, A., Rabbat, M., Bouchacourt, D., & Ibrahim, M. (2024). The factorization curse: Which tokens you predict underlie the reversal curse and more.</a>
+        </p>
+
+        <p id="ref12">
+            [12]<a href=" https://thinkingmachines.ai/tinker/" style="text-align: left">Thinking Machines Lab, 2025. Tinker.</a>
+        </p>
+
+
+
+
+    </div>
+
+</body>
+</html>
